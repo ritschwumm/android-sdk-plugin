@@ -23,4 +23,8 @@ TaskKey[Unit]("check-tr") <<= ( projectLayout in Android ) map { layout =>
   val hasTextView = lines exists (_.trim == expected)
   if (!hasTextView)
     error("Could not find TR.hello\n" + (lines mkString "\n"))
+  val expected2 = "val hello = TypedResource[String](R.string.hello)"
+  val hasStringResource = lines exists (_.trim == expected2)
+  if (!hasStringResource)
+    error("Could not find TR.string.hello\n" + (lines mkString "\n"))
 }
