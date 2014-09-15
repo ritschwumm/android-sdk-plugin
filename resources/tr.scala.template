@@ -13,6 +13,10 @@ object TR {
   object layout {
 %s
   }
+  
+  object string {
+%s
+  }
 }
 
 trait TypedViewHolder {

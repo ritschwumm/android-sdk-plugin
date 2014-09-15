@@ -262,6 +262,7 @@ object Tasks {
 
           def classForLabel(l: String) = {
             if (l contains ".") Some(l)
+            else if (l == "string") Some("String")
             else {
               Seq("android.widget."
                 , "android.view."
@@ -294,14 +295,33 @@ object Tasks {
             l      <- classForLabel(layout.label)
           } yield file.getName.stripSuffix(".xml") -> l)
 
-          val resources = warn(for {
+          val layoutResources = warn(for {
             b      <- layouts
             layout  = XML loadFile b
             n      <- layout.descendant_or_self
             re(id) <- n.attribute(ANDROID_NS, "id") map { _.head.text }
             l      <- classForLabel(n.label)
           } yield id -> l)
-
+          
+          val valuess = (r ** "values" ** "*.xml" get) ++
+            (for {
+              lib <- l filterNot {
+                case p: Pkg => ignores(p.pkg)
+                case _      => false
+              }
+              xml <- lib.getResFolder ** "values" ** "*.xml" get
+            } yield xml)
+            
+          s.log.debug("Values: " + valuess)
+          
+          val valueResources = warn(for {
+            b      <- valuess
+            values  = XML loadFile b
+            n      <- values.descendant_or_self
+            name   <- n.attribute("name") map { _.head.text }
+            l      <- classForLabel(n.label)
+          } yield name -> l)
+          
           val trTemplate = IO.readLinesURL(
             resourceUrl("tr.scala.template")) mkString "\n"
 
@@ -312,11 +332,14 @@ object Tasks {
           tr.delete()
           def wrap(s: String) = if (reservedWords(s)) "`%s`" format s else s
           IO.write(tr, trTemplate format (p, implicitsImport,
-            resources map { case (k,v) =>
+            layoutResources map { case (k,v) =>
               "  val %s = TypedResource[%s](R.id.%s)" format (wrap(k),v,wrap(k))
             } mkString "\n",
             layoutTypes map { case (k,v) =>
               "    val %s = TypedLayout[%s](R.layout.%s)" format (wrap(k),v,wrap(k))
+            } mkString "\n",
+            valueResources map { case (k,v) =>
+              "    val %s = TypedResource[%s](R.string.%s)" format (wrap(k),v,wrap(k))
             } mkString "\n"))
           Set(tr)
         } else Set.empty
